@@ -1,0 +1,613 @@
+program Sentiment_API4_Simple_12;
+ 
+(* #sign:breitsch: BREITSCH-BOX: 27.08.2022 07:43:20 
+ * API http://text-processing.com/docs/sentiment.html,
+ * 1_21: test calls with assert, stringstream with HttpPostURL, Tutor 60_1 
+ * https://github.com/maxkleiner/maXbox4/blob/master/newstoday_sentiment.ipynb*
+ * imputes a sum of bbc news sentiment analysis - base for tutorial 94*)
+//https://www.reddit.com/r/delphi/comments/wnhk9x/psa_github_copilot_works_with_delphi/
+ 
+Const 
+  URLSentimentAPI2= 'http://text-processing.com/api/sentiment/';  
+  USERAGENT='Mozilla/5.0 (Windows NT 10.0; Win64;x64;rv:98.0) Gecko/20100101 Firefox/98.0';
+  URLSentimentAPI3=
+        'http://text-processing.com/api/sentiment/language=dutch&text=goed boek';
+        //term=%s&local=%s&limit=%d';
+  WeatherAPIKEY='55013bf3d09cfb0619989a00ed5bed09';      
+  URLWeatherAPI='https://api.openweathermap.org/data/2.5/weather?q=%s&units=metric&appid=%s';    
+        
+{Status
+405
+METHOD NOT ALLOWED
+VersionHTTP/1.1
+Transferred232 B (0 B size)
+Request PriorityHighest }       
+        
+        
+
+function NowGMT: TDateTime;
+var ST: {Windows.}TSystemTime;  // current system time
+begin
+  // This Windows API function gets system time in UTC/GMT
+  {Windows.}GetSystemTime(ST);
+  Result:= {SysUtils.}SystemTimeToDateTime(ST);
+end;
+
+
+procedure GetSentimentStream(C_form,apath: string; const Data: string);
+var encodURL: string;
+    mapStrm: TStringStream;
+begin
+  encodURL:= Format(UrlSentimentAPI2,[c_form,HTTPEncode(Data)]);
+  mapStrm:= TStringStream.create('');
+  try
+    HttpGet(EncodURL, mapStrm);  //WinInet
+    mapStrm.Position:= 0;
+    //SaveStringtoFile(apath, mapStrm.datastring)
+    //OpenDoc(apath);
+    writeln(mapStrm.datastring)
+  finally
+    mapStrm.Free;
+    encodURL:= '';
+  end;
+end;
+
+function GetSentimentStream8(const S_API, pData: string): string;
+var strm: TStringStream;
+    jo, locate: TJSONObject;
+begin
+//function HttpPostURL(const URL,URLData:string; const Data:TStream):Boolean;
+  strm:= TStringStream.create('');
+  try
+    sr:='text='+HTTPEncode(pData)+'&';
+    sr:= sr+'language=dutch';
+    if HttpPostURL(S_API, sr, strm) then
+      jo:= TJSONObject.Create4(strm.dataString);
+    result:= jo.getString('label')
+  except
+    writeln('E: '+ExceptiontoString(exceptiontype, exceptionparam)); 
+  finally     
+    jo.free;
+    strm.free;
+  end;  
+end; 
+
+function GetWeatherStream(const Data, APIKEY: string): string;
+var encodURL: string;
+    mapStrm: TStringStream;
+begin
+  encodURL:= Format(URLWeatherAPI,[HTTPEncode(Data), APIKEY]);
+  mapStrm:= TStringStream.create('');
+  try
+    HttpGet(EncodURL, mapStrm);  //WinInet
+    mapStrm.Position:= 0;
+    //SaveStringtoFile(apath, mapStrm.datastring)
+    //OpenDoc(apath);
+    result:= mapStrm.datastring;
+  finally
+    mapStrm.Free;
+    encodURL:= '';
+  end;
+end;
+
+function GetWeatherStreamJSON(const Data, APIKEY: string): string;
+var encodURL: string;
+    mapStrm: TStringStream;
+    jo: TJSONObject; 
+begin
+  encodURL:= Format(URLWeatherAPI,[HTTPEncode(Data), APIKEY]);
+  mapStrm:= TStringStream.create('');
+  try
+    HttpGet(EncodURL, mapStrm);  //WinInet
+    mapStrm.Position:= 0;
+    //SaveStringtoFile(apath, mapStrm.datastring)
+    jo:= TJSONObject.Create4(mapStrm.datastring);
+    result:= jo.getjsonarray('weather').getjsonobject(0).getstring('description');
+    result:= result+' '+jo.getjsonobject('main').getstring('temp');
+  finally
+    mapStrm.Free;                                 
+    encodURL:= '';
+    jo.Free;
+  end;
+end;
+
+{data = response.json()
+print(data)
+print(data['weather'][0]['description'])
+print(data['main']['temp'])
+print(data['main']['pressure'])
+print(data['main']['humidity'])}
+
+
+//https://github.com/Zeus64/alcinoe/blob/master/source/ALHttpClient.pas
+function TALHTTPClient_Post5(aUrl: AnsiString;
+                             aPoststring: string;
+                             aResponseContentStream: TStream;
+                             aResponseContentHeader: TALHTTPResponseHeader): string;
+Var 
+   LHttpClient: TALWininetHttpClient;
+   //RequestMethod: TALHTTPRequestMethod;
+   FRequestHeader: TALHTTPRequestHeader;
+   aPostDataStrings: TALStrings;
+begin
+  LHttpClient:= TALWininetHttpClient.create;
+  LHttpClient.url:= aUrl;
+  LHttpClient.RequestMethod:= HTTPmt_Post; //HTTPrm_Post;
+  LHttpClient.RequestHeader.UserAgent:=USERAGENT;
+  //LHttpClient.RequestHeader.CustomHeaders:= 
+  //LHttpClient.RequestHeader.RawHeaderText:='
+  aResponseContentHeader:= TALHTTPResponseHeader.Create;
+  try
+     aPostDataStrings:= TALStringlist.create;
+     aPostDataStrings.add('text='+HTTPEncode(apoststring)); 
+     aPostDataStrings.add('language=english'); 
+     //writeln('debug '+aResponseContentHeader.ReasonPhrase);
+     result:= LHttpClient.PostUrlEncoded(aUrl, aPostDataStrings, true); //overload;
+  finally
+    LHttpClient.Free;
+    aPostDataStrings.Free;
+  end;
+end; 
+
+//https://github.com/Zeus64/alcinoe/blob/master/source/ALHttpClient.pas
+function TALHTTPClient_Post5Response(aUrl: AnsiString;
+                             aPoststring: string;
+                             aResponseContentStream: TStream;
+                             aResponseContentHeader: TALHTTPResponseHeader): string;
+Var 
+   LHttpClient: TALWininetHttpClient;
+   //RequestMethod: TALHTTPRequestMethod;
+   FRequestHeader: TALHTTPRequestHeader;
+   aPostDataStream: TStringStream; //TALStrings;
+   aResponseHeader: TALHTTPResponseHeader;
+   aResponseContent: TStringStream;
+begin
+  LHttpClient:= TALWininetHttpClient.create;
+  LHttpClient.url:= aUrl;
+  LHttpClient.RequestMethod:= HTTPmt_Post; //HTTPrm_Post;
+  LHttpClient.RequestHeader.UserAgent:=USERAGENT;
+  //LHttpClient.RequestHeader.CustomHeaders:= 
+  //LHttpClient.RequestHeader.RawHeaderText:='
+  aResponseContentHeader:= TALHTTPResponseHeader.Create;
+  try
+     aPostDataStream:= TstringStream.create('text='+HTTPEncode(apoststring)+
+                                              +LF+'language=english');
+     //aPostDataStream:= TstringStream.create('');                          
+      //aPostDataStrings.ReadString(5); 
+     //aPostDataStrings.ReadString('text='+HTTPEncode(apoststring)); 
+     //aPostDataStrings.add('language=english'); 
+     //writeln('debug '+aResponseContentHeader.ReasonPhrase);
+     //aPostDataStrings:= TALStringlist.create;
+     //aPostDataStrings.add('text='+HTTPEncode(apoststring)); 
+     //v aPostDataStrings.add('language=english');  
+     //LHttpClient.Receive
+     //aContext : Dword; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader)');
+      //RegisterMethod('Procedure Post( const aUrl : AnsiString; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader);');
+    //RegisterMethod('Procedure Post1( const aUrl : AnsiString; aPostDataStream : TStream; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader);');
+      LHttpClient.RequestHeader
+      //TALHTTPRequestHeader
+      aResponseContent:= TStringStream.create('');
+      aResponseHeader := TALHTTPResponseHeader.create;
+      LHttpClient.Post1(aUrl, aPostDataStream, aResponseContent, aresponseHeader); 
+      //LHttpClient.OnDownloadProgress
+      //LHttpClient.onredirect
+     //overload;
+     result:= aResponseContent.dataString;
+     writeln(aresponseHeader.reasonphrase)
+      writeln(aresponseHeader.RawHeaderText)
+       writeln('content type: '+LHttpClient.RequestHeader.ContentType)
+      writeln('content date: '+LHttpClient.RequestHeader.Date)  
+   writeln('RawHeaderText type: '+LHttpClient.RequestHeader.RawHeaderText) 
+    //LHttpClient.RequestHeader:= LHttpClient.RequestHeader; 
+  finally
+    LHttpClient.Disconnect;
+    LHttpClient.Free;
+    aPostDataStream.Free;
+    aResponseContent.Free;
+    aResponseHeader.Free;                   
+  end;
+end; 
+
+function TALHTTPClient_Post5Translate(aUrl: AnsiString;
+                             aPoststring: string;
+                             aResponseContentStream: TStream;
+                             aResponseContentHeader: TALHTTPResponseHeader): string; 
+Var 
+   LHttpClient: TALWininetHttpClient;
+   //RequestMethod: TALHTTPRequestMethod;
+   FRequestHeader: TALHTTPRequestHeader;
+   aPostDataStream: TStringStream; //TALStrings;
+   aResponseHeader: TALHTTPResponseHeader;
+   aResponseContent: TStringStream;
+   //ARequestHeaderValues: TALNameValueArray;
+begin
+  LHttpClient:= TALWininetHttpClient.create;
+  LHttpClient.url:= 'https://translation.googleapis.com/v3/projects/PROJECT_ID:translateText';
+  LHttpClient.RequestMethod:= HTTPmt_Post; //HTTPrm_Post;
+  LHttpClient.RequestHeader.UserAgent:=USERAGENT;
+  //LHttpClient.RequestHeader.CustomHeaders:= 
+  //LHttpClient.RequestHeader.RawHeaderText:='
+  aResponseContentHeader:= TALHTTPResponseHeader.Create;
+  try
+     aPostDataStream:= TstringStream.create('contents='+HTTPEncode(apoststring)+
+                                              +LF+'language=english');
+     //aPostDataStream:= TstringStream.create('');                          
+      //aPostDataStrings.ReadString(5); 
+     //aPostDataStrings.ReadString('text='+HTTPEncode(apoststring)); 
+     //aPostDataStrings.add('language=english'); 
+     //writeln('debug '+aResponseContentHeader.ReasonPhrase);
+     //aPostDataStrings:= TALStringlist.create;
+     //aPostDataStrings.add('text='+HTTPEncode(apoststring)); 
+     //v aPostDataStrings.add('language=english');  
+     //LHttpClient.Receive
+     //aContext : Dword; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader)');
+      //RegisterMethod('Procedure Post( const aUrl : AnsiString; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader);');
+    //RegisterMethod('Procedure Post1( const aUrl : AnsiString; aPostDataStream : TStream; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader);');
+      aResponseContent:= TStringStream.create('');
+      aResponseHeader := TALHTTPResponseHeader.create;
+      try
+        LHttpClient.Post1(LHttpClient.url, aPostDataStream, aResponseContent, aresponseHeader);
+      except;
+      end;
+      //LHttpClient.PostMultiPartFormData   
+      //LHttpClient.OnDownloadProgress
+      //LHttpClient.onredirect
+     //overload;
+     //LHttpClient.RequestHeaders.Add
+     result:= aResponseContent.dataString;
+     writeln(aresponseHeader.reasonphrase)
+      writeln(aresponseHeader.RawHeaderText)
+      writeln('content type: '+LHttpClient.RequestHeader.ContentType)
+     writeln('RawHeaderText type: '+LHttpClient.RequestHeader.RawHeaderText)  
+  finally
+    LHttpClient.Disconnect;
+    LHttpClient.Free;
+    aPostDataStream.Free;
+    aResponseContent.Free;
+    aResponseHeader.Free;                   
+  end;
+end; 
+
+function CubicInterpolation(const X, X1, X2, X3, X4, Y1, Y2, Y3, Y4: Double): Double;
+var
+  A, B, C, D: Double;
+begin
+  A := (Y4 - Y3) / (X4 - X3) - (Y2 - Y1) / (X2 - X1);
+  B := (Y2 - Y1) / (X2 - X1) - A;
+  C := Y1 - B * X1 - A * X1 * X1;
+  D := A * X * X + B * X + C;
+  Result := D;
+end;
+
+function CubicInterpolation3(X0, Y0, X1, Y1, X2, Y2, X: Single): Single;
+var
+  A, B, C, D: Single;
+begin
+  A := (Y1 - Y0) / (X1 - X0);
+  B := (Y2 - Y1) / (X2 - X1);
+  C := (Y2 - Y0) / (X2 - X0);
+  D := Y0 - A * X0 - C * X0;
+  Result := A * X * X * X + B * X * X + C * X + D;
+end;
+
+//----------------program TestPostRequest;
+const
+  RequestHeaderTemplate =
+    'SOAPAction: http://tempuri.org/IConsultaCFDIService/Consulta';
+  RequestDataTemplate =
+  '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"xmlns:tem="http://tempuri.org/">'
+    + '   <soapenv:Header/>'
+    + '   <soapenv:Body>'
+    + '      <tem:Consulta>'
+    + '         <!--Optional:-->'
+    + '         <tem:expresionImpresa><![CDATA[%expresionImpresa%]]></tem:expresionImpresa>'
+    + '      </tem:Consulta>'
+    + '   </soapenv:Body>'
+    + '</soapenv:Envelope>';
+    
+
+//var weights: array[0..2] of real;
+const refsent= 'The Democrats say they sheltered in a safe room alongside others who refused to wear masks.';
+
+const refsent2= 'Three US lawmakers have tested positive for the coronavirus after sheltering for hours with colleagues during last weeks deadly assault on the Capitol.' ;
+var 
+    ashaFM: TSHA2FamilyMember ;
+    cryplib: TCryptographicLibrary;
+    IIndyHTTP: TIdHTTP;  abitm: TBitmap;
+ 
+begin //@main
+  maxform1.orangestyle1click(self)
+  memo1.font.size:= 13; memo2.font.size:= 15;
+  writeln('FreePhysicalMemory1: '+itoa(GetFreePhysicalMemory))
+  writeln(Sha256(memo2.text,'S'))
+  //writeln(sha512('const Plaintext: string','S'))
+  //ExecuteShell('cmd','/c runas "/user:Administrator" ExePath+'maXbox4.exe')
+    
+  if IsInternet then begin  
+     {
+       println(GetSentimentStream6(URLSentimentAPI2,
+                              FiletoString(senttextfile2)));
+     }
+                          
+    println('res: '+GetSentimentStream8(URLSentimentAPI2,'Het is goed'));
+    
+    writeln('back from post2sent: '+ReplaceRegExpr('\d\d{4,12}[},]',
+                  TALHTTPClient_Post5(URLSentimentAPI2,'this is good text2test',
+                                                Nil, Nil),'',false));
+    writeln('back from post3sent: '+ReplaceRegExpr('\d\d{4,12}[},]',
+                  TALHTTPClient_Post5Response(URLSentimentAPI2,'this is good text2test',
+                                                Nil, Nil),'',false));  
+                                                
+    writeln('back from weather: '+GetWeatherStream('Bern,CH',WeatherAPIKEY)); 
+    writeln('back from weatherjs: '+GetWeatherStreamJSON('Bern,CH',WeatherAPIKEY));                                                                                
+     (*         
+     writeln('back from post4sent: '+ReplaceRegExpr('\d\d{4,12}[},]',
+                  TALHTTPClient_Post5Translate(URLSentimentAPI2,'this is good text2test',
+                                                Nil, Nil),'',false));       
+      *)                                          
+    
+   {CL.AddTypeS('TXMLTypeRSS', '(xtRDFrss,xtRSSrss,xtAtomrss,xtiTunesrss )');
+    CL.AddTypeS('TEncodingTypeRSS','(etBase64rss, etEscapedrss, etXMLrss )');}
+  end;    
+  
+  //println(GetSentimentStream7(URLSentimentAPI2,refsent2));
+  //println(ReplaceRegExpr('\d\d{4,12}[},]',
+  //           GetSentimentStream7(URLSentimentAPI2,refsent2),' ',false))
+     
+   //Instantiate a WinHttpRequest object as a second solution.
+  (* httpReq:= CreateOleObject('WinHttp.WinHttpRequest.5.1');
+   // Open an HTTP connection.                
+   hr:= httpReq.Open('GET', URLNewsFeed, false);
+   if hr= S_OK then httpReq.setRequestheader('items','title'); 
+    HttpReq.Send();  /// Send HTTP Request & get Responses.
+   //writeln(httpReq.responseText)
+   //writeln(datetimetostr(ParseRSSDate(httpReq.responseText)));  
+   //writeln(httpReq.GetAllResponseHeaders());  
+   httpreq:= unassigned;    *)
+     
+  { with TForm.create(self) do begin
+     abitm:= TBitmap.create;
+     //abitm.SetSize(400, 400);
+     setbounds(10,10,330,350);
+     abitm.loadfromresourcename(hinstance,'MOON_FULL');
+     canvas.brush.bitmap:= abitm; 
+     Show; 
+     canvas.FillRect(abitm.Canvas.ClipRect);   
+   end;
+   //}
+   //writeln(getascii)
+   writeln(datetimetostr(UnixToDateTime(1661365592)));
+End.
+
+
+Ref: https://github.com/frantic/delphi-tdd-example/blob/master/src/RssModel.pas
+     http://text-processing.com/docs/sentiment.html
+     https://stackoverflow.com/questions/3885703/post-method-winhttprequest-multipart-form-data
+     https://github.com/features/copilot/
+     
+#!/usr/bin/env ts-node
+
+import { fetch } from "fetch-h2";
+
+// Determine whether the sentiment of text is positive
+// Use a web service
+
+async function isPositive(text: string): Promise<boolean> {
+
+  const response = await fetch(`http://text-processing.com/api/sentiment/`, {
+    method: "POST",
+    body: `text=${text}`,
+
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+  });
+
+  const json = await response.json();
+  return json.label === "pos";
+}     
+
+type
+  TRSSItem = class
+  private
+    FPubDate: TDate;
+    FLink, FTitle: string;
+    FDescription: string;
+  public
+    property Title: string read FTitle write FTitle;
+    property Link: string read FLink write FLink;
+    property Description: string read FDescription write FDescription;
+    property PubDate: TDate read FPubDate write FPubDate;
+  end;
+
+  TRSSFeed = class
+  private
+    FDescription: string;
+    FTitle: string;
+    FLink: string;
+    FItems: TObjectList<TRSSItem>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    function AddItem: TRSSItem;
+    property Title: string read FTitle write FTitle;
+    property Description: string read FDescription write FDescription;
+    property Link: string read FLink write FLink;
+    property Items: TObjectList<TRSSItem> read FItems;
+  end;
+  
+TWinApiDownload = class(TObject)
+  private
+    fEventWorkStart : TEventWorkStart;
+    fEventWork : TEventWork;
+    fEventWorkEnd : TEventWorkEnd;
+    fEventError : TEventError;
+    fURL : string;
+    fUserAgent : string;
+    fStop : Boolean;
+    fActive : Boolean;
+    fCachingEnabled : Boolean;
+    fProgressUpdateInterval : Cardinal;
+    function GetIsActive : Boolean;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    function CheckURL(aURL: string) : Integer;
+    function Download(Stream : TStream) : Integer; overload;
+    function Download(var res : string) : Integer; overload;
+    function ErrorCodeToMessageString(aErrorCode : Integer) : string;
+    procedure Stop;
+    procedure Clear;
+    property UserAgent : string read fUserAgent write fUserAgent;
+    property URL : string read fURL write fURL;
+    property DownloadActive : Boolean read GetIsActive;
+    property CachingEnabled : Boolean read fCachingEnabled write fCachingEnabled;
+  property UpdateInterval:Cardinal read fProgressUpdateInterval write fProgressUpdateInterval;
+    property OnWorkStart : TEventWorkStart read fEventWorkStart write fEventWorkStart;
+    property OnWork : TEventWork read fEventWork write fEventWork;
+    property OnWorkEnd : TEventWorkEnd read fEventWorkEnd write fEventWorkEnd;
+    property OnError : TEventError read fEventError write fEventError;
+  end;  
+  
+const axios = require("axios");
+const encodedParams = new URLSearchParams();
+encodedParams.append("text", "Hello World");
+encodedParams.append("to", "es");
+encodedParams.append("from", "en");
+
+const options = {
+  method: 'POST',
+  url: 'https://nlp-translation.p.rapidapi.com/v1/translate',
+  headers: {
+    'content-type': 'application/x-www-form-urlencoded',
+    'X-RapidAPI-Host': 'nlp-translation.p.rapidapi.com',
+    'X-RapidAPI-Key': 'df61a35825msh66c9514de953a7ap192bcfjsn16a3d1018ce3'
+  },
+  data: encodedParams
+};
+
+
+procedure SIRegister_TALWinHttpClient(CL: TPSPascalCompiler);
+begin
+  //with RegClassS(CL,'TALHTTPClient', 'TALWinHttpClient') do
+  with CL.AddClassN(CL.FindClass('TALHTTPClient'),'TALWinHttpClient') do begin
+    RegisterMethod('Constructor Create');
+     RegisterMethod('Procedure Free');
+    RegisterMethod('Procedure Connect');
+    RegisterMethod('Procedure Disconnect');
+    RegisterMethod('Function Send( aRequestDataStream : TStream) : Integer');
+    RegisterMethod('Procedure Receive( aContext : Dword; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader)');
+    RegisterProperty('AccessType', 'TALWinHttpClientInternetOpenAccessType', iptrw);
+    RegisterProperty('InternetOptions', 'TALWinHttpClientInternetOptionSet', iptrw);
+    RegisterProperty('InternetOptions2', 'TALWinHttpClientInternetOptionSet2', iptrw);
+    RegisterProperty('DisconnectOnError', 'Boolean', iptrw);
+    RegisterProperty('OnStatusChange', 'TALWinHttpClientStatusChangeEvent', iptrw);
+  end;
+end;
+
+procedure SIRegister_TALHTTPClient(CL: TPSPascalCompiler);
+begin
+  //with RegClassS(CL,'TObject', 'TALHTTPClient') do
+  with CL.AddClassN(CL.FindClass('TObject'),'TALHTTPClient') do begin
+    RegisterMethod('Constructor Create');
+    RegisterMethod('Procedure Free');
+    RegisterMethod('Procedure Execute( aRequestDataStream : TStream; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader)');
+    RegisterMethod('Procedure Get( const aUrl : AnsiString; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader);');
+    RegisterMethod('Procedure Post( const aUrl : AnsiString; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader);');
+    RegisterMethod('Procedure Post1( const aUrl : AnsiString; aPostDataStream : TStream; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader);');
+    RegisterMethod('Procedure PostUrlEncoded( const aUrl : AnsiString; aPostDataStrings : TALStrings; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader; const EncodeParams : Boolean);');
+    RegisterMethod('Procedure PostMultipartFormData( const aUrl : AnsiString; aPostDataStrings : TALStrings; aPostDataFiles : TALMultiPartFormDataContents; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader);');
+    RegisterMethod('Procedure Head( const aUrl : AnsiString; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader);');
+    RegisterMethod('Procedure Trace( const aUrl : AnsiString; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader);');
+    RegisterMethod('Procedure Put( const aUrl : AnsiString; aPutDataStream : TStream; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader);');
+    RegisterMethod('Procedure Delete( const aUrl : AnsiString; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader);');
+    RegisterMethod('Function Get1( const aUrl : AnsiString) : AnsiString;');
+    RegisterMethod('Function Get2( const aUrl : AnsiString; aParams : TALStrings; const EncodeParams : Boolean) : AnsiString;');
+    RegisterMethod('Procedure Get3( const aUrl : AnsiString; aParams : TALStrings; aResponseContentStream : TStream; aResponseContentHeader : TALHTTPResponseHeader; const EncodeParams : Boolean);');
+    RegisterMethod('Function Post2( const aUrl : AnsiString) : AnsiString;');
+    RegisterMethod('Function Post3( const aUrl : AnsiString; aPostDataStream : TStream) : AnsiString;');
+    RegisterMethod('Function PostUrlEncoded( const aUrl : AnsiString; aPostDataStrings : TALStrings; const EncodeParams : Boolean) : AnsiString;');
+    RegisterMethod('Function PostMultiPartFormData( const aUrl : AnsiString; aPostDataStrings : TALStrings; aPostDataFiles : TALMultiPartFormDataContents) : AnsiString;');
+    RegisterMethod('Function Head( const aUrl : AnsiString) : AnsiString;');
+    RegisterMethod('Function trace( const aUrl : AnsiString) : AnsiString;');
+    RegisterMethod('Function Put( const aURL : Ansistring; aPutDataStream : TStream) : AnsiString;');
+    RegisterMethod('Function Delete( const aURL : Ansistring) : AnsiString;');
+    RegisterProperty('URL', 'AnsiString', iptrw);
+    RegisterProperty('ConnectTimeout', 'Integer', iptrw);
+    RegisterProperty('SendTimeout', 'Integer', iptrw);
+    RegisterProperty('ReceiveTimeout', 'Integer', iptrw);
+    RegisterProperty('UploadBufferSize', 'Integer', iptrw);
+    RegisterProperty('ProxyParams', 'TALHTTPClientProxyParams', iptr);
+    RegisterProperty('RequestHeader', 'TALHTTPRequestHeader', iptr);
+    RegisterProperty('ProtocolVersion', 'TALHTTPProtocolVersion', iptrw);
+    RegisterProperty('RequestMethod', 'TALHTTPMethod', iptrw);
+    RegisterProperty('UserName', 'AnsiString', iptrw);
+    RegisterProperty('Password', 'AnsiString', iptrw);
+    RegisterProperty('OnUploadProgress', 'TALHTTPClientUploadProgressEvent', iptrw);
+    RegisterProperty('OnDownloadProgress', 'TALHTTPClientDownloadProgressEvent', iptrw);
+    RegisterProperty('OnRedirect', 'TAlHTTPClientRedirectEvent', iptrw);
+  end;
+end;
+
+(*----------------------------------------------------------------------------*)
+procedure SIRegister_TALHTTPClientProxyParams(CL: TPSPascalCompiler);
+begin
+  //with RegClassS(CL,'Tobject', 'TALHTTPClientProxyParams') do
+  with CL.AddClassN(CL.FindClass('Tobject'),'TALHTTPClientProxyParams') do begin
+    RegisterMethod('Constructor Create');
+    RegisterMethod('Procedure Clear');
+    RegisterProperty('ProxyBypass', 'AnsiString', iptrw);
+    RegisterProperty('ProxyServer', 'AnsiString', iptrw);
+    RegisterProperty('ProxyPort', 'integer', iptrw);
+    RegisterProperty('ProxyUserName', 'AnsiString', iptrw);
+    RegisterProperty('ProxyPassword', 'AnsiString', iptrw);
+    RegisterProperty('OnChange', 'TALHTTPPropertyChangeEvent', iptrw);
+  end;
+end;
+
+Random forest
+Random forests or random decision forests are an ensemble learning method for classification, regression and other tasks, that operate by constructing a multitude of decision trees at training time and outputting the class that is the mode of the classes or mean prediction of the individual trees. Random decision forests correct for decision trees' habit of overfitting to their training set.
+A random forest is a meta estimator that fits a number of decision tree classifiers on various sub-samples of the dataset and use averaging to improve the predictive accuracy and control over-fitting. The sub-sample size is always the same as the original input sample size but the samples are drawn ...
+The random Forest is an ensemble classifier. It has gained a significant interest in the recent past, due to its quality performance in several areas. A lot of new research work/survey reports related to different areas also reflects this.
+[Search domain www.quora.com] https://www.quora.com/What-is-a-random-forest
+Random forests or random decision forests are an ensemble learning method for classification, regression and other tasks, that operate by constructing a multitude of decision trees at training time and outputting the class that is the mode of the classes or mean prediction of the individual trees. Random decision forests correct for decision trees' habit of overfitting to their training set.
+
+---app_template_loaded_code----
+------------------------------------------------------------------
+
+Titel: Patterns Konkret
+Autor: Max Kleiner (Hrsg.), Silvia Rothen, Bernhard Angerer
+ ISBN: 3-935042-46-9 
+ 
+per le botteghe non e la fine: le salveranno i nostri anziani
+Für die Geschäfte ist es nicht das Ende: Unsere Senioren werden sie retten
+«Werden wir von Robotern gepflegt?», «Ist es noch notwendig, Sprachen zu lernen?», «Wer macht meinen Job?», «Was wäre, wenn es selbstfahrende Autos gäbe?».
+
+maXbox is an intuitive scripting tool designed to help you create scripts. It bundles a Delphi engine that can be used to test, teach and analyze algorithms in a practical manner.
+You can run the application from a portable drive and quickly deploy it using byte or text code. maXbox provides a comprehensive collection of exercises and examples, as well as a handy debug and decompile function.
+On top of that, the program provides numerous tutorials from all over the world.
+
+class -----------------------------------------------------------------
+
+Gruppenarbeiten sind, wo möglich, erwünscht und je nach Rahmenbedingungen sogar von Vorteil. Der nominelle Aufwand liegt bei 90h, kann je nach Vorbereitungsphase und Komplexität aber auch höher sein. Semesterprojekte können vertraulich behandelt werden. Massgebend für die Rahmenbedingungen ist das Studienreglement
+
+Berner Fachhochschule
+Technik und Informatik
+Administration Weiterbildung
+
+http://www.kleiner.ch/kleiner/TEE_files/tee_models.htm
+
+Max Kleiner
+Sentiment Analysis: Sometimes also known as "opinion mining", sentiment analysis can let you know if there has been a change in public opinion toward any aspect of your business or politics till citizen score or street credibility.
+You see code of an API in a script!
+
+https://www.academia.edu/37015210/Machine_Learning_maXbox_starter60_1
+https://venturebeat.com/2020/12/04/researchers-find-that-even-fair-hiring-algorithms-can-be-biased/
+
+Dieser berufsbegleitende Diplomlehrgang bietet eine kompakte, praxisnahe Weiterbildung: von Data Science, Datenmanagement und -analysen über Künstliche Intelligenz, Digital Business und Prozessdigitalisierung bis zu Digital Leadership.  
+
+TNetUtilsSettings
+
+https://python.plainenglish.io/10-killer-apis-for-your-next-python-project-f4299126232a
+
