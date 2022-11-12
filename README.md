@@ -58,4 +58,6 @@ end;
 
 https://maxbox4.wordpress.com/2021/07/28/python4maxbox-code/
 
+![1096_2022-11-12_svg_delphi_maxbox_seaborn4](https://user-images.githubusercontent.com/109789632/201486990-f574eb5f-46e1-439f-a456-2e158fdf35e9.png)
+
 
